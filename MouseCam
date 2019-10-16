@@ -1,0 +1,36 @@
+import pygame
+import pygame.camera
+from pygame.locals import *
+
+window_size = (640, 480)
+FILENAME = 'capture.png'
+
+def camstream():
+    pygame.init()
+    pygame.camera.init()
+
+    pygame.display.set_caption('MouseCam')
+    icon = pygame.image.load("C:\\Users\Khan Lab\\Pictures\\MouseCam_Icon.ico")
+    pygame.display.set_icon(icon)
+
+    display = pygame.display.set_mode(window_size, 0)
+    cam_list = pygame.camera.list_cameras()
+    camera = pygame.camera.Camera(cam_list[0], window_size)
+    camera.start()
+    screen = pygame.surface.Surface(window_size, 0, display)
+    capture = True
+    while capture:
+        screen = camera.get_image(screen)
+        display.blit(screen, (0,0))
+        pygame.display.flip()
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                capture = False
+            elif event.type == KEYDOWN and event.key == K_s:
+                pygame.image.save(screen, FILENAME)
+    camera.stop()
+    pygame.quit()
+    return
+
+if __name__ == '__main__':
+    camstream()
