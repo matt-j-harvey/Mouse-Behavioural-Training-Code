@@ -1,0 +1,43 @@
+from psychopy import visual, core, event, experiment  # import some libraries from PsychoPy
+import numpy as np
+import socket
+
+#Setup TCP Socket
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+#Grating Settings
+spatial_frequency = 5 / 1600
+orientation = 45
+window_size = [1920,1080]
+mask = np.zeros((1920,1080))
+
+def drift_grating(grating, window):
+    grating_phase = [0.0, 0.16, 0.33, 0.5]
+
+    phase = 0
+    increment = 0.05
+    duration = 600
+
+    for interation in range(duration):
+        grating.phase = phase
+        grating.draw()
+        win.flip()
+
+        phase += increment
+        if phase > 1:
+            phase = 0
+
+
+win = visual.Window(screen=2, monitor="testMonitor", units="deg", fullscr=True)
+
+grating = visual.GratingStim(win=win, units="pix", size=[2500,2500], ori=orientation, sf=spatial_frequency)
+
+grating.draw()
+
+win.flip()
+
+drift_grating(grating, win)
+
+event.waitKeys()
+
+win.close()
