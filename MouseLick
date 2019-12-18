@@ -1,0 +1,175 @@
+import serial
+import serial.tools.list_ports
+import time
+from PyQt5.QtWidgets import *
+from PyQt5 import QtGui
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import numpy as np
+
+#Declare Variables
+a_threshold = 0.5
+b_threshold = 0.5
+serial_port = "COM5"
+reading_lick_traces = 0
+trace_length = 200
+a_lick_values = np.zeros(trace_length)
+b_lick_values = np.zeros(trace_length)
+
+a_lick_values = list(a_lick_values)
+b_lick_values = list(b_lick_values
+                     )
+x_values = list(range(0, trace_length))
+global ser
+
+
+#Create Functions
+def start_serial_communication():
+    global ser
+
+    try:
+        ser = serial.Serial()
+        ser.baudrate = 9600
+        ser.port = com_port_combobox.currentText()
+        ser.timeout = 10
+        ser.open()
+        print("Successfully Connected To Teensy")
+    except:
+        print("Failed to connect with Teensy")
+
+
+
+def read_lick_traces():
+    global ser
+    start_serial_communication()
+
+    while reading_lick_traces == 1:
+        ser.reset_input_buffer()
+        time.sleep(0.001)
+
+        serial_input = str(ser.readline())
+        serial_input_list = serial_input.split()
+
+        b_trace_value = int(serial_input_list[5].replace(r"\r\n'", "")) / 1000
+        a_trace_value = int(serial_input_list[4]) / 1000
+
+        a_lick_values.append(a_trace_value)
+        b_lick_values.append(b_trace_value)
+
+        del a_lick_values[0]
+        del b_lick_values[0]
+
+        computer_a_axis.clear()
+        computer_a_axis.set_ylim([0, 2])
+        computer_a_axis.plot(x_values, a_lick_values)
+        computer_a_axis.axhline(a_threshold, color='red', lw=1)
+        computer_a_axis.get_xaxis().set_visible(False)
+
+        computer_b_axis.clear()
+        computer_b_axis.set_ylim([0, 2])
+        computer_b_axis.plot(x_values, b_lick_values)
+        computer_b_axis.axhline(b_threshold, color='red', lw=1)
+        computer_b_axis.get_xaxis().set_visible(False)
+
+        computer_a_canvas.draw()
+        computer_b_canvas.draw()
+        app.processEvents()
+
+def computer_a_threshold_changed():
+    global a_threshold
+    a_threshold = computer_a_threshold_spinner.value()
+
+def computer_b_threshold_changed():
+    global b_threshold
+    b_threshold = computer_b_threshold_spinner.value()
+
+
+def stop():
+    global reading_lick_traces
+    global ser
+    reading_lick_traces = 0
+    ser.close()
+
+def start():
+    global reading_lick_traces
+    reading_lick_traces = 1
+    read_lick_traces()
+
+def get_com_ports():
+    comlist = serial.tools.list_ports.comports()
+    connected = []
+    for element in comlist:
+        connected.append(element.device)
+    return connected
+
+
+
+#Create GUI
+app = QApplication([])
+window = QWidget()
+window.setWindowTitle("Lick Callibration")
+window.setGeometry(0,0,600,500)
+window.setWindowIcon(QtGui.QIcon(r"C:\Users\Behaviour Only A\Pictures\Lick Calibration Icon.jpg"))
+
+#Create Elements for GUI
+computer_a_threshold_label = QLabel("A Threshold:")
+computer_b_threshold_label = QLabel("B Threshold:")
+
+computer_a_threshold_spinner = QDoubleSpinBox()
+computer_a_threshold_spinner.setValue(a_threshold)
+computer_a_threshold_spinner.setSingleStep(0.01)
+computer_a_threshold_spinner.valueChanged.connect(computer_a_threshold_changed)
+
+computer_b_threshold_spinner = QDoubleSpinBox()
+computer_b_threshold_spinner.setValue(b_threshold)
+computer_b_threshold_spinner.setSingleStep(0.01)
+computer_b_threshold_spinner.valueChanged.connect(computer_b_threshold_changed)
+
+computer_a_figure = Figure()
+computer_a_figure.suptitle("Computer A Trace")
+computer_a_axis = computer_a_figure.add_subplot()
+#computer_a_axis.set_ylim([0, 2])
+#computer_a_axis.get_xaxis().set_visible(False)
+computer_a_canvas = FigureCanvas(computer_a_figure)
+
+computer_b_figure = Figure()
+computer_b_figure.suptitle("Computer B Trace")
+computer_b_axis = computer_b_figure.add_subplot()
+#computer_b_axis.set_ylim([0, 2])
+#computer_b_axis.get_xaxis().set_visible(False)
+computer_b_canvas = FigureCanvas(computer_b_figure)
+
+com_port_label = QLabel("COM PORT: ")
+comports = get_com_ports()
+com_port_combobox = QComboBox()
+com_port_combobox.addItems(comports)
+
+
+start_button = QPushButton("Start")
+stop_button = QPushButton("Stop")
+
+stop_button.clicked.connect(stop)
+start_button.clicked.connect(start)
+
+
+#Add Elements To GUI
+window_layout = QGridLayout()
+window_layout.addWidget(computer_b_canvas,              0, 2, 9, 15)
+window_layout.addWidget(computer_b_threshold_label,     0, 0, 1, 1)
+window_layout.addWidget(computer_b_threshold_spinner,   0, 1, 1, 1)
+
+window_layout.addWidget(computer_a_canvas,              10, 2, 9, 15)
+window_layout.addWidget(computer_a_threshold_label,     10, 0, 1, 1)
+window_layout.addWidget(computer_a_threshold_spinner,   10, 1, 1, 1)
+
+window_layout.addWidget(com_port_label,                 31, 2, 1, 1)
+window_layout.addWidget(com_port_combobox,              31, 3, 1, 1)
+window_layout.addWidget(start_button,                   31, 4, 1, 1)
+window_layout.addWidget(stop_button,                    31, 5, 1, 1)
+window.setLayout(window_layout)
+
+window.show()
+
+read_lick_traces()
+app.exec_()
