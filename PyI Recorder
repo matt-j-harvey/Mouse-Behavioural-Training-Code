@@ -1,0 +1,18 @@
+import PyDAQmx as nidaq
+import numpy as np
+
+
+task = nidaq.Task()
+task.CreateAIVoltageChan("Dev1/ai0", None, nidaq.DAQmx_Val_Diff, -10, 10, nidaq.DAQmx_Val_Volts, None)
+task.CfgSampClkTiming("", 1000, nidaq.DAQmx_Val_Rising, nidaq.DAQmx_Val_ContSamps, 5000)
+task.AutoRegisterEveryNSamplesEvent(nidaq.DAQmx_Val_Acquired_Into_Buffer, 1000, 0)
+task.AutoRegisterDoneEvent(0)
+data = np.zeros((5000,), dtype=np.float64)
+
+def EveryNCallback():
+    task.ReadAnalogF64(1000,10.0,nidaq.DAQmx_Val_GroupByScanNumber,data,1000,byref(read),None)
+
+
+task.StopTask()
+task.ClearTask()
+
