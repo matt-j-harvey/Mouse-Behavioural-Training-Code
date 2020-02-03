@@ -1,0 +1,72 @@
+import pyqtgraph as pg
+from PyQt5.QtWidgets import *
+from PyQt5.QtGui import QBrush, QColor
+from PyQt5.QtCore import Qt
+import sys
+import numpy as np
+from time import sleep
+
+pg.setConfigOptions(imageAxisOrder='row-major')
+
+class window(QWidget):
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Strobing Stimulus")
+        self.setGeometry(0,0,500,500)
+        self.layout = QGridLayout()
+
+        # Create Display Image View
+        self.display_widget = pg.GraphicsLayoutWidget()
+        self.display_viewbox = self.display_widget.addViewBox(lockAspect=1, invertY=False)
+        self.display_image = pg.ImageItem()
+        self.display_viewbox.addItem(self.display_image)
+        self.display_viewbox.setAspectLocked(True)
+        self.layout.addWidget(self.display_widget)
+        self.setLayout(self.layout)
+
+
+    def create_checkerboards(self):
+
+        board_1 = np.zeros((100, 150))
+        board_2 = np.zeros((100, 150))
+
+        for x in range(10):
+            if x % 2 == 0:
+               board_1[x*10:(x+1)*10, 0:10] = 1
+               board_2[x*10:(x+1)*10, 10:20] = 1
+
+            else:
+                board_1[x*10:(x+1)*10, 10:20] = 1
+                board_2[x*10:(x+1)*10, 0:10] = 1
+
+        return board_1, board_2
+
+    def display_stimuli(self):
+
+        board_1, board_2 = self.create_checkerboards()
+
+        for x in range(10000):
+            if x % 2 == 0:
+                self.display_image.setImage(board_1)
+                app.processEvents()
+
+            else:
+                self.display_image.setImage(board_2)
+                app.processEvents()
+
+            sleep(0.1)
+
+            board_1 = np.roll(board_1, 1, axis=1)
+            board_2 = np.roll(board_2, 1, axis=1)
+
+
+if __name__ == '__main__':
+
+    app = QApplication([])
+
+    window_instance = window()
+    window_instance.show()
+    window_instance.display_stimuli()
+
+    sys.exit(app.exec_())
