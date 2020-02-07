@@ -1,0 +1,119 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+def get_chunk_structure(chunk_size, array_size):
+
+    number_of_chunks = int(np.ceil(array_size / chunk_size))
+
+    remainder = array_size % chunk_size
+
+    #Get Chunk Sizes
+    chunk_sizes = []
+    if remainder == 0:
+        for x in range(number_of_chunks):
+            chunk_sizes.append(chunk_size)
+    else:
+        for x in range(number_of_chunks - 1):
+            chunk_sizes.append(chunk_size)
+        chunk_sizes.append(remainder)
+
+    #Get Chunk Starts
+    chunk_starts = []
+    chunk_start = 0
+    for chunk_index in range(number_of_chunks):
+        chunk_starts.append(chunk_size * chunk_index)
+
+    #Get Chunk Stops
+    chunk_stops = []
+    chunk_stop = 0
+    for chunk_index in range(number_of_chunks):
+        chunk_stop += chunk_sizes[chunk_index]
+        chunk_stops.append(chunk_stop)
+
+    return number_of_chunks, chunk_sizes, chunk_starts, chunk_stops
+
+
+def create_checkerboards():
+
+    board_1 = np.zeros((height, width))
+
+    x_number_of_chunks, x_chunk_sizes, x_chunk_starts, x_chunk_stops = get_chunk_structure(square_size, width)
+    y_number_of_chunks, y_chunk_sizes, y_chunk_starts, y_chunk_stops = get_chunk_structure(square_size, height)
+
+    print(x_number_of_chunks, x_chunk_sizes, x_chunk_starts, x_chunk_stops)
+    for y_chunk_index in range(y_number_of_chunks):
+        y_chunk_start = y_chunk_starts[y_chunk_index]
+        y_chunk_stop = y_chunk_stops[y_chunk_index]
+
+        if y_chunk_index % 2 == 0:
+            skip_number = 0
+        else:
+            skip_number = 1
+
+        for x_chunk_index in range(x_number_of_chunks):
+
+            if x_chunk_index % 2 == skip_number:
+                pass
+            else:
+                x_chunk_start = x_chunk_starts[x_chunk_index]
+                x_chunk_stop  = x_chunk_stops[x_chunk_index]
+                board_1[y_chunk_start:y_chunk_stop, x_chunk_start:x_chunk_stop] = 1
+
+
+    board_2 = 1 - board_1
+
+    grey_board = np.zeros((height, width))
+    grey_board = grey_board + 0.5
+
+    return board_1, board_2, grey_board
+
+
+def get_window(checkerboard, grey_board, window_size, x, width):
+
+    if x+window_size > width:
+        window_size = width-x
+
+    new_board = grey_board.copy()
+    new_board[:, x:x+window_size] = checkerboard[:, x:x+window_size]
+
+    return new_board
+
+
+
+height = 100
+width = 150
+square_size = 10
+window_size = 10
+
+
+board_1, board_2, grey_board = create_checkerboards()
+
+boards = [board_1, board_2]
+
+
+plt.ion()
+
+invert_every = 1
+invert_counter = 0
+selected_board = 0
+
+for x in range(0, width):
+
+    image = get_window(boards[selected_board], grey_board, window_size, x, width)
+    plt.imshow(image, cmap="Greys")
+    plt.draw()
+    plt.pause(.00001)
+    plt.clf()
+
+
+
+    invert_counter += 1
+    if invert_counter > 5:
+        invert_counter = 0
+
+        if selected_board == 0:
+            selected_board = 1
+        elif selected_board == 1:
+            selected_board = 0
+
