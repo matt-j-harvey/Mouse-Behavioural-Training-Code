@@ -1,0 +1,123 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import imageio
+from scipy import ndimage
+from skimage.feature import canny
+from skimage import data, color, img_as_ubyte
+from skimage.feature import canny
+from skimage.transform import hough_ellipse
+from skimage.draw import ellipse_perimeter
+
+
+def threshold_image(image_data, threshold):
+    thresholded_image = np.where(image_data >= threshold, 0, 1)
+    print(thresholded_image)
+
+    return thresholded_image
+
+def threshold_kernel(thresholded_image_data, height, width, kernel_size):
+
+    new_image = np.zeros((height, width))
+
+    kernal_area = (kernel_size*2) * (kernel_size*2)
+
+    for y in range(kernel_size, height - kernel_size):
+        for x in range(kernel_size, width - kernel_size):
+            kernel_region = thresholded_image_data[y-kernel_size:y+kernel_size,x-kernel_size:x+kernel_size]
+            region_sum = np.sum(kernel_region)
+
+            if region_sum > kernal_area * 0.8 :
+                new_image[y][x] = 1
+
+    return new_image
+
+
+def reinflation_kernel(thresholded_image_data, height, width, kernel_size):
+    new_image = np.zeros((height, width))
+
+    kernal_area = (kernel_size*2) * (kernel_size*2)
+
+    for y in range(kernel_size, height - kernel_size):
+        for x in range(kernel_size, width - kernel_size):
+            kernel_region = thresholded_image_data[y-kernel_size:y+kernel_size,x-kernel_size:x+kernel_size]
+            region_sum = np.sum(kernel_region)
+
+            if region_sum > kernal_area * 0.3:
+                new_image[y][x] = 1
+
+    return new_image
+
+
+
+file_location = r"C:\Users\matth\OneDrive\Pictures\mouse eye example.png"
+
+raw_image_data = imageio.imread(file_location)
+image_data = raw_image_data[:, :, 0]
+
+height = np.shape(image_data)[0]
+width = np.shape(image_data)[1]
+print("Height: ", height, "Width: ", width)
+
+
+minimum_values = np.percentile(image_data, 4)
+thresholded_image = threshold_image(image_data, minimum_values)
+
+print("Thresholded Image")
+plt.imshow(thresholded_image)
+plt.show()
+print(np.shape(thresholded_image))
+
+print("Kernel Image: ")
+kernel_image = threshold_kernel(thresholded_image, height, width, 3)
+kernel_image = threshold_kernel(kernel_image, height, width, 3)
+kernel_image = threshold_kernel(kernel_image, height, width, 3)
+plt.imshow(kernel_image)
+plt.show()
+
+print("reinflated Image: ")
+kernel_image = reinflation_kernel(kernel_image, height, width, 3)
+kernel_image = reinflation_kernel(kernel_image, height, width, 3)
+kernel_image = reinflation_kernel(kernel_image, height, width, 3)
+kernel_image = reinflation_kernel(kernel_image, height, width, 3)
+plt.imshow(kernel_image)
+plt.show()
+
+print("Eye Centre")
+centre = ndimage.measurements.center_of_mass(kernel_image)
+print(centre)
+
+centre_y = int(centre[0])
+centre_x = int(centre[1])
+
+kernel_image[centre_y, centre_x] = 3
+plt.imshow(kernel_image)
+plt.show()
+
+edges = canny(kernel_image, sigma=2.0,
+              low_threshold=0.55, high_threshold=0.8)
+
+plt.imshow(edges)
+plt.show()
+
+
+# Perform a Hough Transform
+# The accuracy corresponds to the bin size of a major axis.
+# The value is chosen in order to get a single high accumulator.
+# The threshold eliminates low accumulators
+result = hough_ellipse(edges, accuracy=20, threshold=100, min_size=10, max_size=120)
+result.sort(order='accumulator')
+
+# Estimated parameters for the ellipse
+best = list(result[-1])
+yc, xc, a, b = [int(round(x)) for x in best[1:5]]
+orientation = best[5]
+
+# Draw the ellipse on the original image
+cy, cx = ellipse_perimeter(yc, xc, a, b, orientation)
+# Draw the edge (white) and the resulting ellipse (red)
+edges = color.gray2rgb(img_as_ubyte(edges))
+raw_image_data[cy, cx] = (250, 0, 0)
+
+print("eLIPSE")
+plt.imshow(raw_image_data)
+plt.show()
