@@ -7,117 +7,133 @@ from skimage import data, color, img_as_ubyte
 from skimage.feature import canny
 from skimage.transform import hough_ellipse
 from skimage.draw import ellipse_perimeter
+import cv2
+import pyqtgraph as pg
+from PyQt5.QtWidgets import *
+from PyQt5.QtGui import QBrush, QColor
+from PyQt5.QtCore import Qt
+import sys
+from PIL import Image
+
+save_base_directory = r"C:\Users\matth\Videos\Pupil\\"
+image_base_directory = r"C:\Users\matth\Videos\Watching Frames\\"
+pg.setConfigOptions(imageAxisOrder='row-major')
+
+class visulisation_window(QWidget):
+
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Pupil Tracker")
 
 
-def threshold_image(image_data, threshold):
-    thresholded_image = np.where(image_data >= threshold, 0, 1)
-    print(thresholded_image)
+        # Create Original Image View
+        self.original_widget = pg.GraphicsLayoutWidget()
+        self.original_viewbox = self.original_widget.addViewBox(lockAspect=1, invertY=True)
+        self.original_image = pg.ImageItem()
+        self.original_viewbox.addItem(self.original_image)
+        self.original_viewbox.setAspectLocked(True)
 
-    return thresholded_image
+        # Threshold Image View
+        self.threshold_widget = pg.GraphicsLayoutWidget()
+        self.threshold_viewbox = self.threshold_widget.addViewBox(lockAspect=1, invertY=True)
+        self.threshold_image = pg.ImageItem()
+        self.threshold_viewbox.addItem(self.threshold_image)
+        self.threshold_viewbox.setAspectLocked(True)
 
-def threshold_kernel(thresholded_image_data, height, width, kernel_size):
+        # Erosion Image View
+        self.erosion_widget = pg.GraphicsLayoutWidget()
+        self.erosion_viewbox = self.erosion_widget.addViewBox(lockAspect=1, invertY=True)
+        self.erosion_image = pg.ImageItem()
+        self.erosion_viewbox.addItem(self.erosion_image)
+        self.erosion_viewbox.setAspectLocked(True)
 
-    new_image = np.zeros((height, width))
+        # Reinflation Image View
+        self.reinflation_widget = pg.GraphicsLayoutWidget()
+        self.reinflation_viewbox = self.reinflation_widget.addViewBox(lockAspect=1, invertY=True)
+        self.reinflation_image = pg.ImageItem()
+        self.reinflation_viewbox.addItem(self.reinflation_image)
+        self.reinflation_viewbox.setAspectLocked(True)
 
-    kernal_area = (kernel_size*2) * (kernel_size*2)
+        # Ellipse Image View
+        self.elipse_widget = pg.GraphicsLayoutWidget()
+        self.elipse_viewbox = self.elipse_widget.addViewBox(lockAspect=1, invertY=True)
+        self.elipse_image = pg.ImageItem()
+        self.elipse_viewbox.addItem(self.elipse_image)
+        self.elipse_viewbox.setAspectLocked(True)
 
-    for y in range(kernel_size, height - kernel_size):
-        for x in range(kernel_size, width - kernel_size):
-            kernel_region = thresholded_image_data[y-kernel_size:y+kernel_size,x-kernel_size:x+kernel_size]
-            region_sum = np.sum(kernel_region)
+        # Create Layout
+        self.layout = QGridLayout()
+        self.layout.addWidget(self.original_widget)
+        self.layout.addWidget(self.threshold_widget)
+        self.layout.addWidget(self.erosion_widget)
+        self.layout.addWidget(self.reinflation_widget)
+        self.layout.addWidget(self.elipse_widget)
+        self.setLayout(self.layout)
 
-            if region_sum > kernal_area * 0.8 :
-                new_image[y][x] = 1
-
-    return new_image
-
-
-def reinflation_kernel(thresholded_image_data, height, width, kernel_size):
-    new_image = np.zeros((height, width))
-
-    kernal_area = (kernel_size*2) * (kernel_size*2)
-
-    for y in range(kernel_size, height - kernel_size):
-        for x in range(kernel_size, width - kernel_size):
-            kernel_region = thresholded_image_data[y-kernel_size:y+kernel_size,x-kernel_size:x+kernel_size]
-            region_sum = np.sum(kernel_region)
-
-            if region_sum > kernal_area * 0.3:
-                new_image[y][x] = 1
-
-    return new_image
-
-
-
-file_location = r"C:\Users\matth\OneDrive\Pictures\mouse eye example.png"
-
-raw_image_data = imageio.imread(file_location)
-image_data = raw_image_data[:, :, 0]
-
-height = np.shape(image_data)[0]
-width = np.shape(image_data)[1]
-print("Height: ", height, "Width: ", width)
+        #self.show()
+        self.showMaximized()
 
 
-minimum_values = np.percentile(image_data, 4)
-thresholded_image = threshold_image(image_data, minimum_values)
+def track_pupil(file_location, save_directory):
 
-print("Thresholded Image")
-plt.imshow(thresholded_image)
-plt.show()
-print(np.shape(thresholded_image))
+    threshold_percentile = 2
+    kernel_size = 5
+    kernel_iterations = 5
+    kernel = np.ones((kernel_size, kernel_size))
 
-print("Kernel Image: ")
-kernel_image = threshold_kernel(thresholded_image, height, width, 3)
-kernel_image = threshold_kernel(kernel_image, height, width, 3)
-kernel_image = threshold_kernel(kernel_image, height, width, 3)
-plt.imshow(kernel_image)
-plt.show()
+    raw_image_data = imageio.imread(file_location)
+    image_data = raw_image_data[:, :, 0]
+    window_instance.original_image.setImage(image_data)
 
-print("reinflated Image: ")
-kernel_image = reinflation_kernel(kernel_image, height, width, 3)
-kernel_image = reinflation_kernel(kernel_image, height, width, 3)
-kernel_image = reinflation_kernel(kernel_image, height, width, 3)
-kernel_image = reinflation_kernel(kernel_image, height, width, 3)
-plt.imshow(kernel_image)
-plt.show()
+    #Threshold Image
+    threshold_value = np.percentile(image_data, threshold_percentile)
+    thresholded_image = np.where(image_data >= threshold_value, 0, 1)
+    window_instance.threshold_image.setImage(thresholded_image)
 
-print("Eye Centre")
-centre = ndimage.measurements.center_of_mass(kernel_image)
-print(centre)
+    #Erode Image
+    thresholded_image = thresholded_image.astype(np.uint8)
+    kernel_image = cv2.erode(thresholded_image, kernel, iterations=kernel_iterations)
+    window_instance.erosion_image.setImage(kernel_image)
 
-centre_y = int(centre[0])
-centre_x = int(centre[1])
+    #Reinflate Vision
+    kernel_image = cv2.dilate(kernel_image, kernel, iterations=kernel_iterations)
+    window_instance.reinflation_image.setImage(kernel_image)
 
-kernel_image[centre_y, centre_x] = 3
-plt.imshow(kernel_image)
-plt.show()
+    #Detect Edges
+    kernel_image = kernel_image.astype(np.uint8)
+    contours, hierarchy = cv2.findContours(kernel_image, 2,1)
+    cnt = max(contours, key=cv2.contourArea)
 
-edges = canny(kernel_image, sigma=2.0,
-              low_threshold=0.55, high_threshold=0.8)
+    #Fit Elipse
+    ellipse = cv2.fitEllipse(cnt)
+    im = cv2.ellipse(raw_image_data, ellipse, (0, 255, 0), 2)
+    window_instance.elipse_image.setImage(im)
 
-plt.imshow(edges)
-plt.show()
+    app.processEvents()
 
 
-# Perform a Hough Transform
-# The accuracy corresponds to the bin size of a major axis.
-# The value is chosen in order to get a single high accumulator.
-# The threshold eliminates low accumulators
-result = hough_ellipse(edges, accuracy=20, threshold=100, min_size=10, max_size=120)
-result.sort(order='accumulator')
+    pil_image = Image.fromarray(im)
+    pil_image.save(save_directory)
 
-# Estimated parameters for the ellipse
-best = list(result[-1])
-yc, xc, a, b = [int(round(x)) for x in best[1:5]]
-orientation = best[5]
 
-# Draw the ellipse on the original image
-cy, cx = ellipse_perimeter(yc, xc, a, b, orientation)
-# Draw the edge (white) and the resulting ellipse (red)
-edges = color.gray2rgb(img_as_ubyte(edges))
-raw_image_data[cy, cx] = (250, 0, 0)
 
-print("eLIPSE")
-plt.imshow(raw_image_data)
-plt.show()
+if __name__ == '__main__':
+
+    app = QApplication([])
+
+    window_instance = visulisation_window()
+
+    save_base_directory = r"C:\Users\matth\Videos\Pupil\\"
+    image_base_directory = r"C:\Users\matth\Videos\Watching Frames\\"
+
+    for image in range(0, 2012):
+        print(image)
+        file_location = image_base_directory + str(image) + ".png"
+        save_directory = save_base_directory + str(image).zfill(6) + ".jpeg"
+        track_pupil(file_location, save_directory)
+
+    sys.exit(app.exec_())
+
+
+
+
