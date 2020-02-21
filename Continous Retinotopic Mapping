@@ -1,0 +1,222 @@
+import sys
+from PyQt5.QtWidgets import QApplication, QDesktopWidget
+import pyqtgraph as pg
+from PyQt5.QtWidgets import *
+from PyQt5.QtGui import QBrush, QColor
+from PyQt5.QtCore import Qt
+import sys
+import numpy as np
+from time import sleep
+import serial
+
+
+pg.setConfigOptions(imageAxisOrder='row-major')
+
+
+def get_chunk_structure(chunk_size, array_size):
+    number_of_chunks = int(np.ceil(array_size / chunk_size))
+
+    remainder = array_size % chunk_size
+
+    # Get Chunk Sizes
+    chunk_sizes = []
+    if remainder == 0:
+        for x in range(number_of_chunks):
+            chunk_sizes.append(chunk_size)
+    else:
+        for x in range(number_of_chunks - 1):
+            chunk_sizes.append(chunk_size)
+        chunk_sizes.append(remainder)
+
+    # Get Chunk Starts
+    chunk_starts = []
+    chunk_start = 0
+    for chunk_index in range(number_of_chunks):
+        chunk_starts.append(chunk_size * chunk_index)
+
+    # Get Chunk Stops
+    chunk_stops = []
+    chunk_stop = 0
+    for chunk_index in range(number_of_chunks):
+        chunk_stop += chunk_sizes[chunk_index]
+        chunk_stops.append(chunk_stop)
+
+    return number_of_chunks, chunk_sizes, chunk_starts, chunk_stops
+
+
+def create_checkerboards(height, width, square_size):
+    board_1 = np.zeros((height, width))
+
+    x_number_of_chunks, x_chunk_sizes, x_chunk_starts, x_chunk_stops = get_chunk_structure(square_size, width)
+    y_number_of_chunks, y_chunk_sizes, y_chunk_starts, y_chunk_stops = get_chunk_structure(square_size, height)
+
+    for y_chunk_index in range(y_number_of_chunks):
+        y_chunk_start = y_chunk_starts[y_chunk_index]
+        y_chunk_stop = y_chunk_stops[y_chunk_index]
+
+        if y_chunk_index % 2 == 0:
+            skip_number = 0
+        else:
+            skip_number = 1
+
+        for x_chunk_index in range(x_number_of_chunks):
+
+            if x_chunk_index % 2 == skip_number:
+                pass
+            else:
+                x_chunk_start = x_chunk_starts[x_chunk_index]
+                x_chunk_stop = x_chunk_stops[x_chunk_index]
+                board_1[y_chunk_start:y_chunk_stop, x_chunk_start:x_chunk_stop] = 1
+
+    board_2 = 1 - board_1
+
+    grey_board = np.zeros((height, width))
+    grey_board = grey_board + 0.5
+
+    return board_1, board_2, grey_board
+
+
+def get_window(checkerboard, grey_board, window_size, x, width):
+    if x + window_size > width:
+        window_size = width - x
+
+    new_board = grey_board.copy()
+    new_board[:, x:x + window_size] = checkerboard[:, x:x + window_size]
+
+    return new_board
+
+def open_serial_port(port_name):
+    serial_port = serial.Serial()
+    serial_port.baudrate = 9600
+    serial_port.port = port_name
+    serial_port.timeout = 10
+    serial_port.open()
+
+    return serial_port
+
+class control_window(QWidget):
+    def __init__(self, boards, grey_board, window_size, width):
+        super().__init__()
+        self.setWindowTitle("Continous Retinotopic Mapping")
+        self.setGeometry(0, 0, 200,25)
+        #self.setWindowFlags(Qt.FramelessWindowHint)
+
+        self.start_button = QPushButton("Start Mapping")
+        self.start_button.clicked.connect(display_stimuli)
+        self.layout = QGridLayout()
+        self.layout.addWidget(self.start_button)
+        self.setLayout(self.layout)
+
+
+class window(QWidget):
+
+
+    def __init__(self, height, width):
+        super().__init__()
+        self.setWindowTitle("Strobing Stimulus")
+        self.setWindowFlags(Qt.FramelessWindowHint)
+
+        self.layout = QGridLayout()
+
+        # Create Display Image View
+        self.display_widget = pg.GraphicsLayoutWidget()
+        self.display_viewbox = self.display_widget.addViewBox(invertY=False, enableMouse=False, enableMenu=False)
+        self.display_viewbox.setRange(xRange=[0, width], yRange=[0, height], padding=0)
+
+        self.display_widget.ci.layout.setContentsMargins(0,0,0,0)
+        self.display_widget.ci.layout.setSpacing(0)
+        #self.display_viewbox.setAspectLocked(True)
+
+        self.layout.addWidget(self.display_widget)
+        self.layout.minimumSize()
+        self.layout.setContentsMargins(0, 0, 0, 0)
+
+        self.setLayout(self.layout)
+
+
+
+def display_stimuli():
+    global window_1_image
+    global window_2_image
+
+    invert_every = 5
+    invert_counter = 0
+    selected_board = 0
+
+    number_of_presentations = 60
+
+    for presentation in range(number_of_presentations):
+        print("Presentation: ", presentation, " of ", number_of_presentations)
+
+        for x in range(0, width):
+
+            image = get_window(boards[selected_board], grey_board, window_size, x, width)
+
+            window_1_image.setImage(image, levels=(0, 1))
+            window_2_image.setImage(image, levels=(0, 1))
+
+            invert_counter += 1
+            if invert_counter > invert_every:
+                invert_counter = 0
+
+                if selected_board == 0:
+                    selected_board = 1
+                elif selected_board == 1:
+                    selected_board = 0
+
+            app.processEvents()
+            sleep(0.001)
+
+    image = grey_board
+    window_1_image.setImage(image, levels=(0, 1))
+    window_2_image.setImage(image, levels=(0, 1))
+    app.processEvents()
+
+if __name__ == '__main__':
+
+    app = QApplication(sys.argv)
+
+    #Create Checkerboard Patterns
+    height = 270
+    width = 480
+    square_size = 25
+    window_size = 25
+
+    board_1, board_2, grey_board = create_checkerboards(height, width, square_size)
+    boards = [board_1, board_2]
+
+    # Setup Display Windows
+    window_1 = window(height, width)
+    window_2 = window(height, width)
+
+    window_1_image = pg.ImageItem()
+    window_2_image = pg.ImageItem()
+
+    window_1.display_viewbox.addItem(window_1_image)
+    window_2.display_viewbox.addItem(window_2_image)
+    window_2.display_viewbox.invertX(True)
+
+    window_1_image.setImage(grey_board, levels=(0, 1))
+    window_2_image.setImage(grey_board, levels=(0, 1))
+
+
+    #Setup Monitors
+    display_monitors = [1,2] # the number of the monitor you want to display your widget
+
+    monitor_1 = QDesktopWidget().screenGeometry(display_monitors[0])
+    monitor_2 = QDesktopWidget().screenGeometry(display_monitors[1])
+
+    window_1.move(monitor_1.left(), monitor_1.top())
+    window_2.move(monitor_2.left(), monitor_2.top())
+
+    window_1.showMaximized()
+    window_2.showMaximized()
+
+    control_window_instance = control_window([board_1, board_2], grey_board, window_size, width)
+    control_window_instance.show()
+
+
+    #Display Stumuli
+    #display_stimuli([board_1, board_2], grey_board, window_size, width)
+
+    sys.exit(app.exec_())
