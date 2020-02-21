@@ -70,11 +70,11 @@ class window(QWidget):
 def display_stimuli(grey_screen, window):
 
     number_of_presentations = 100
-    strobe_number = 10
+    strobe_number = 5
     stimuli = generate_stimuli(grey_screen)
 
-    strobe_interval = 0.1
-    presentation_interval = 4
+    strobe_interval = 0.2
+    presentation_interval = 3
 
     for presentation in range(number_of_presentations):
 
