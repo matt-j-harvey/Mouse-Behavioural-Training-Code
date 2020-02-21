@@ -10,6 +10,7 @@ from time import sleep
 import serial
 
 pg.setConfigOptions(imageAxisOrder='row-major')
+event_log = []
 
 
 def generate_stimuli(grey_screen):
@@ -23,8 +24,15 @@ def generate_stimuli(grey_screen):
     #Left Posterior On
     stimuli_posterior_on    [1 * strip_height: 3 * strip_height, 1 * strip_width: 4 * strip_width] = 1
     stimuli_posterior_off   [1 * strip_height: 3 * strip_height, 1 * strip_width: 4 * strip_width] = 0
-    stimuli_anterior_on     [1 * strip_height: 3 * strip_height, 5 * strip_width: 8 * strip_width] = 1
-    stimuli_anterior_off    [1 * strip_height: 3 * strip_height, 5 * strip_width: 8 * strip_width] = 0
+    stimuli_anterior_on     [1 * strip_height: 3 * strip_height, 4 * strip_width: 8 * strip_width] = 1
+    stimuli_anterior_off    [1 * strip_height: 3 * strip_height, 4 * strip_width: 8 * strip_width] = 0
+
+    #Add Photodiode Cubes
+    stimuli_posterior_on  [0:5, 0:5] = 1
+    stimuli_posterior_off [0:5, 0:5] = 1
+    stimuli_anterior_on   [0:5, 0:5] = 1
+    stimuli_anterior_off  [0:5, 0:5] = 1
+
 
     return [[stimuli_posterior_on, stimuli_posterior_off], [stimuli_anterior_on, stimuli_anterior_off]]
 
@@ -66,12 +74,14 @@ def display_stimuli(grey_screen, window):
     stimuli = generate_stimuli(grey_screen)
 
     strobe_interval = 0.1
-    presentation_interval = 1
+    presentation_interval = 4
 
     for presentation in range(number_of_presentations):
 
         side        = np.random.randint(0, 2)
         position    = np.random.randint(0, 2)
+
+        event_log.append([side, position])
 
         for strobe in range(strobe_number):
 
@@ -85,7 +95,11 @@ def display_stimuli(grey_screen, window):
 
         window.image.setImage(grey_screen, levels=(0, 1))
         app.processEvents()
-        sleep(presentation_interval)
+
+        random_delay = np.random.uniform(0,1)
+        print(random_delay)
+        sleep(presentation_interval + random_delay)
+        print(event_log)
 
 
 
