@@ -1,0 +1,115 @@
+import sys
+from PyQt5.QtWidgets import QApplication, QDesktopWidget
+import pyqtgraph as pg
+from PyQt5.QtWidgets import *
+from PyQt5.QtGui import QBrush, QColor
+from PyQt5.QtCore import Qt
+import sys
+import numpy as np
+from time import sleep
+import serial
+
+pg.setConfigOptions(imageAxisOrder='row-major')
+
+
+def generate_stimuli(grey_screen):
+
+    #Generate Stimuli Bases
+    stimuli_posterior_on   = np.copy(grey_screen)
+    stimuli_posterior_off  = np.copy(grey_screen)
+    stimuli_anterior_on    = np.copy(grey_screen)
+    stimuli_anterior_off   = np.copy(grey_screen)
+
+    #Left Posterior On
+    stimuli_posterior_on    [1 * strip_height: 3 * strip_height, 1 * strip_width: 4 * strip_width] = 1
+    stimuli_posterior_off   [1 * strip_height: 3 * strip_height, 1 * strip_width: 4 * strip_width] = 0
+    stimuli_anterior_on     [1 * strip_height: 3 * strip_height, 5 * strip_width: 8 * strip_width] = 1
+    stimuli_anterior_off    [1 * strip_height: 3 * strip_height, 5 * strip_width: 8 * strip_width] = 0
+
+    return [[stimuli_posterior_on, stimuli_posterior_off], [stimuli_anterior_on, stimuli_anterior_off]]
+
+
+
+class window(QWidget):
+
+
+    def __init__(self, height, width):
+        super().__init__()
+        self.setWindowTitle("Strobing Stimulus")
+        self.setWindowFlags(Qt.FramelessWindowHint)
+
+        self.layout = QGridLayout()
+
+        # Create Display Image View
+        self.display_widget = pg.GraphicsLayoutWidget()
+        self.display_viewbox = self.display_widget.addViewBox(invertY=False, enableMouse=False, enableMenu=False)
+        self.display_viewbox.setRange(xRange=[0, width], yRange=[0, height], padding=0)
+
+        self.image = pg.ImageItem()
+        self.display_viewbox.addItem(self.image)
+
+        self.display_widget.ci.layout.setContentsMargins(0,0,0,0)
+        self.display_widget.ci.layout.setSpacing(0)
+        #self.display_viewbox.setAspectLocked(True)
+
+        self.layout.addWidget(self.display_widget)
+        self.layout.minimumSize()
+        self.layout.setContentsMargins(0, 0, 0, 0)
+
+        self.setLayout(self.layout)
+
+
+def display_stimuli(grey_screen, window):
+
+    number_of_presentations = 100
+    strobe_number = 10
+    stimuli = generate_stimuli(grey_screen)
+
+    strobe_interval = 0.1
+    presentation_interval = 1
+
+    for presentation in range(number_of_presentations):
+
+        side        = np.random.randint(0, 2)
+        position    = np.random.randint(0, 2)
+
+        for strobe in range(strobe_number):
+
+            window.image.setImage(stimuli[position][1], levels=(0, 1))
+            app.processEvents()
+            sleep(strobe_interval)
+
+            window.image.setImage(stimuli[position][0], levels=(0, 1))
+            app.processEvents()
+            sleep(strobe_interval)
+
+        window.image.setImage(grey_screen, levels=(0, 1))
+        app.processEvents()
+        sleep(presentation_interval)
+
+
+
+
+
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+
+    height = 100
+    width = 150
+    strip_height = int(height / 4)
+    strip_width = int(width / 8)
+
+    grey_screen = np.ones((height, width))
+    grey_screen = grey_screen * 0.5
+
+    window_1 = window(height, width)
+    window_1.image.setImage(grey_screen, levels=(0, 1))
+
+
+    window_1.show()
+
+    display_stimuli(grey_screen, window_1)
+
+
+    sys.exit(app.exec_())
