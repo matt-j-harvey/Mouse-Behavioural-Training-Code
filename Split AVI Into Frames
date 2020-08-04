@@ -1,0 +1,65 @@
+import cv2
+import os
+import shutil
+import numpy as np
+import matplotlib.pyplot as plt
+
+file_location = "C:/Eye_Cam_Recordings/El Mause_2020-07-09-12-36-30"
+file_location = file_location + ".avi"
+
+save_location = "C:/Eye_Cam_Recordings/Split_Frames"
+
+
+
+def clear_directory(folder):
+    for filename in os.listdir(folder):
+        file_path = os.path.join(folder, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            print('Failed to delete %s. Reason: %s' % (file_path, e))
+
+def video_to_frames(video, path_output_dir):
+
+    clear_directory(save_location)
+    even_pixel_intensities = []
+    odd_pixel_intensities = []
+    # extract frames from a video and save to directory as 'x.png' where
+    # x is the frame index
+    vidcap = cv2.VideoCapture(video)
+    count = 0
+    while vidcap.isOpened():
+
+        success, image = vidcap.read()
+
+        if success:
+            cv2.imwrite(os.path.join(path_output_dir, '%d.png') % count, image)
+            mean_pixel_intensity = np.mean(image)
+
+            if count % 2 == 0:
+                even_pixel_intensities.append(mean_pixel_intensity)
+            else:
+                odd_pixel_intensities.append(mean_pixel_intensity)
+
+            count += 1
+            print(count)
+
+
+        else:
+            break
+    cv2.destroyAllWindows()
+    vidcap.release()
+
+    plt.plot(even_pixel_intensities, c='b')
+    plt.plot(odd_pixel_intensities, c='r')
+    plt.show()
+
+    print("Finito!")
+
+
+#def check_dropped_frames():
+
+video_to_frames(file_location, save_location)
